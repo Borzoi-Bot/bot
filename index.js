@@ -11,21 +11,6 @@ let guildId;
 
 client.once('ready', () => {
   console.log('online');
-
-  const guild = client.guilds.cache.first();
-  if (guild) {
-    guildId = guild.id;
-    console.log(`Guild ID: ${guildId}`);
-  } else {
-    console.log('Bot is not in any guild.');
-  }
-// this isnt required i was just using it to see if the bot could send messages initially
-  const channel = client.channels.cache.find(channel => channel.name === 'general');
-  if (channel) {
-    channel.send('online');
-  } else {
-    console.log('General channel not found.');
-  }
 });
 
 client.on('guildCreate', (guild) => {
