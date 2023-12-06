@@ -109,5 +109,5 @@ client.on('ready', async () => {
   }
 });
 
-
-client.login('MTE4MTgwNTUxNjM2MDUxNTY2NQ.GKsyuJ.bvo6DcLbxDStGWNtz0cDRLZmrylGCl00S5sJs4');
+// your token here
+client.login('');
