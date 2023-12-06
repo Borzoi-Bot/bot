@@ -39,10 +39,13 @@ client.on('guildCreate', (guild) => {
     .addField('Commands List:', '[UNUSED](https://example.com/link1)')
     .addField('GitHub:', '[GitHub](https://github.com/Borzoi-Bot)')
     .setImage('https://github.com/Borzoi-Bot/branding/blob/main/branding.png?raw=true');
+  
+  const welcomeChannel = guild.channels.cache.find(channel => channel.type === 'GUILD_TEXT');
 
-  const channel = guild.systemChannel; 
-  if (channel) {
-    channel.send({ embeds: [welcomeEmbed] });
+  if (welcomeChannel) {
+    welcomeChannel.send({ embeds: [welcomeEmbed] });
+  } else {
+    console.log('No text channels found in the guild.');
   }
 });
 
