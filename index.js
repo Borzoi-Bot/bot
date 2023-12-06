@@ -38,7 +38,7 @@ client.on('guildCreate', (guild) => {
     .setColor('#000000')
     .addField('Commands List:', '[UNUSED](https://example.com/link1)')
     .addField('GitHub:', '[GitHub](https://github.com/Borzoi-Bot)')
-    .setImage('https://cdn.discordapp.com/attachments/1173477059620782133/1181842711028965446/image.png?ex=658287cb&is=657012cb&hm=0a2d082ea617b0adf3d7403f&');
+    .setImage('https://github.com/Borzoi-Bot/branding/blob/main/branding.png?raw=true');
 
   const channel = guild.systemChannel; 
   if (channel) {
