@@ -224,5 +224,9 @@ async function handleWarnCommand(interaction, guild) {
   console.log(`User ${targetMember.user.tag} warned in ${guild.name} for: ${reason}`);
 }
 
-// your token here
-client.login('');
+// to read the config.json for the token
+const fs = require('fs');
+const config = JSON.parse(fs.readFileSync('config.json', 'utf-8'));
+const token = config.token;
+
+client.login(token);
