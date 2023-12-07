@@ -300,7 +300,7 @@ async function sendDM(user, message) {
 async function handleVersionCommand(interaction) {
   // please make sure to update this info whenever there's a new pull request for the production branch
   const versionInfo = {
-    version: 'N/A', 
+    version: '0.9', 
     releaseDate: 'December 7th, 2023', 
     changes: [
       '- Version Command, `/version`',
