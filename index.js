@@ -7,8 +7,64 @@ const client = new Client({
   ],
 });
 
+function getMuteRole(guild) {
+  return guild.roles.cache.find((role) => role.name === 'muted');
+}
+
+async function setupCommands() {
+  const commands = [
+    { name: 'test', description: 'A test command' },
+    { name: 'embedtest', description: 'A command to test embeds' },
+    { name: 'ping', description: 'Check the bot\'s latency' },
+    {
+      name: 'ban',
+      description: 'Ban a user',
+      options: [
+        { name: 'user', description: 'The user to ban', type: 'USER', required: true },
+        { name: 'reason', description: 'Reason for the ban', type: 'STRING' },
+      ],
+    },
+    {
+      name: 'warn',
+      description: 'Warn a user',
+      options: [
+        { name: 'user', description: 'The user to warn', type: 'USER', required: true },
+        { name: 'reason', description: 'Reason for the warning', type: 'STRING' },
+      ],
+    },
+    {
+      name: 'mute',
+      description: 'Mute a user',
+      options: [
+        { name: 'user', description: 'The user to mute', type: 'USER', required: true },
+        { name: 'duration', description: 'Duration of the mute in minutes', type: 'INTEGER', required: true },
+        { name: 'reason', description: 'Reason for the mute', type: 'STRING' },
+      ],
+    },
+  ];
+
+  try {
+    const existingCommands = await client.application?.commands.fetch();
+
+    for (const command of commands) {
+      const existingCommand = existingCommands.find((cmd) => cmd.name === command.name);
+
+      if (existingCommand) {
+        await client.application?.commands.edit(existingCommand.id, command);
+        console.log(`Updated command: ${existingCommand.name}`);
+      } else {
+        await client.application?.commands.create(command);
+        console.log(`Created command: ${command.name}`);
+      }
+    }
+  } catch (error) {
+    console.error('Failed to update/create commands:', error);
+  }
+}
+
 client.once('ready', () => {
   console.log('Online');
+  setupCommands();
 });
 
 client.on('guildCreate', (guild) => {
@@ -22,9 +78,7 @@ client.on('guildCreate', (guild) => {
     .addField('GitHub:', '[GitHub](https://github.com/Borzoi-Bot)')
     .setImage('https://github.com/Borzoi-Bot/branding/blob/main/branding.png?raw=true');
 
-  const welcomeChannel = guild.channels.cache.find(
-    (channel) => channel.type === 'GUILD_TEXT'
-  );
+  const welcomeChannel = guild.channels.cache.find((channel) => channel.type === 'GUILD_TEXT');
 
   if (welcomeChannel) {
     welcomeChannel.send({ embeds: [welcomeEmbed] });
@@ -34,27 +88,39 @@ client.on('guildCreate', (guild) => {
 });
 
 client.on('interactionCreate', async (interaction) => {
-  if (!interaction.isCommand()) return;
+  if (!interaction.isCommand() || interaction.replied || interaction.deferred) {
+    return;
+  }
 
-  const { commandName, options, guild } = interaction;
+  const { commandName, guild } = interaction;
 
   try {
-    if (commandName === 'test') {
-      await interaction.reply('test');
-    } else if (commandName === 'embedtest') {
-      const embed = new MessageEmbed()
-        .setTitle('Embed Test')
-        .setDescription('This is a test embed.')
-        .setColor('#0099ff');
-
-      await interaction.reply({ embeds: [embed] });
-    } else if (commandName === 'ping') {
-      const ping = client.ws.ping;
-      await interaction.reply(`Bot latency is ${ping}ms.`);
-    } else if (commandName === 'ban') {
-      await handleBanCommand(interaction, guild);
-    } else if (commandName === 'warn') {
-      await handleWarnCommand(interaction, guild);
+    switch (commandName) {
+      case 'test':
+        await interaction.reply('test');
+        break;
+      case 'embedtest':
+        const embed = new MessageEmbed()
+          .setTitle('Embed Test')
+          .setDescription('This is a test embed.')
+          .setColor('#0099ff');
+        await interaction.reply({ embeds: [embed] });
+        break;
+      case 'ping':
+        const ping = client.ws.ping;
+        await interaction.reply(`Bot latency is ${ping}ms.`);
+        break;
+      case 'ban':
+        await handleBanCommand(interaction, guild);
+        break;
+      case 'warn':
+        await handleWarnCommand(interaction, guild);
+        break;
+      case 'mute':
+        await handleMuteCommand(interaction, guild);
+        break;
+      default:
+        break;
     }
   } catch (error) {
     console.error('Error handling interaction:', error);
@@ -65,107 +131,11 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
-client.on('ready', async () => {
-  try {
-    const testData = {
-      name: 'test',
-      description: 'A test command',
-    };
-
-    const embedTestData = {
-      name: 'embedtest',
-      description: 'A command to test embeds',
-    };
-
-    const pingData = {
-      name: 'ping',
-      description: 'Check the bot\'s latency',
-    };
-
-    const banData = {
-      name: 'ban',
-      description: 'Ban a user',
-      options: [
-        {
-          name: 'user',
-          description: 'The user to ban',
-          type: 'USER',
-          required: true,
-        },
-        {
-          name: 'reason',
-          description: 'Reason for the ban',
-          type: 'STRING',
-        },
-      ],
-    };
-
-    const warnData = {
-      name: 'warn',
-      description: 'Warn a user',
-      options: [
-        {
-          name: 'user',
-          description: 'The user to warn',
-          type: 'USER',
-          required: true,
-        },
-        {
-          name: 'reason',
-          description: 'Reason for the warning',
-          type: 'STRING',
-        },
-      ],
-    };
-
-    const commands = await client.application?.commands.fetch();
-    console.log('Bot Commands:', commands);
-
-    const testCommand = await client.application?.commands.create(testData);
-    if (testCommand) {
-      console.log(`Created command: ${testCommand.name}`);
-    } else {
-      console.log('Failed to create test command');
-    }
-
-    const embedTestCommand = await client.application?.commands.create(embedTestData);
-    if (embedTestCommand) {
-      console.log(`Created command: ${embedTestCommand.name}`);
-    } else {
-      console.log('Failed to create embedtest command');
-    }
-
-    const pingCommand = await client.application?.commands.create(pingData);
-    if (pingCommand) {
-      console.log(`Created command: ${pingCommand.name}`);
-    } else {
-      console.log('Failed to create ping command');
-    }
-
-    const banCommand = await client.application?.commands.create(banData);
-    if (banCommand) {
-      console.log(`Created command: ${banCommand.name}`);
-    } else {
-      console.log('Failed to create ban command');
-    }
-
-    const warnCommand = await client.application?.commands.create(warnData);
-    if (warnCommand) {
-      console.log(`Created command: ${warnCommand.name}`);
-    } else {
-      console.log('Failed to create warn command');
-    }
-  } catch (error) {
-    console.error('Failed to create commands:', error);
-  }
-});
-
 async function handleBanCommand(interaction, guild) {
   const options = interaction.options;
   const reason = options.getString('reason') || 'No reason provided';
   const targetMember = options.getMember('user');
 
-  // Check if the user has the "BAN_MEMBERS" permission
   if (!interaction.member.permissions.has('BAN_MEMBERS')) {
     return interaction.reply({
       content: 'You do not have permission to ban members.',
@@ -224,9 +194,75 @@ async function handleWarnCommand(interaction, guild) {
   console.log(`User ${targetMember.user.tag} warned in ${guild.name} for: ${reason}`);
 }
 
+async function handleMuteCommand(interaction, guild) {
+  const options = interaction.options;
+  const duration = options.getInteger('duration');
+  const reason = options.getString('reason') || 'No reason provided';
+  const targetMember = options.getMember('user');
+
+  if (!interaction.member.permissions.has('MANAGE_ROLES')) {
+    return interaction.reply({
+      content: 'You do not have permission to mute members.',
+      ephemeral: true,
+    });
+  }
+
+  if (!guild.me.permissions.has('MANAGE_ROLES')) {
+    return interaction.reply({
+      content: 'I do not have permission to manage roles.',
+      ephemeral: true,
+    });
+  }
+
+  if (!targetMember) {
+    return interaction.reply({
+      content: 'Please specify a valid user to mute.',
+      ephemeral: true,
+    });
+  }
+
+  const muteRole = getMuteRole(guild);
+
+  if (!muteRole) {
+    return interaction.reply({
+      content: 'Could not find a role named "muted" in the server.',
+      ephemeral: true,
+    });
+  }
+
+  const userRoles = targetMember.roles.cache.filter(role => role.id !== muteRole.id);
+
+  try {
+    await targetMember.roles.set([muteRole.id], reason);
+
+    await targetMember.send(`You have been muted in ${guild.name} for ${duration} minutes. Reason: ${reason}`);
+  } catch (error) {
+    console.error('Failed to set roles or send DM to muted user:', error);
+    return interaction.reply({
+      content: 'An error occurred while muting the user.',
+      ephemeral: true,
+    });
+  }
+
+  setMute(async () => {
+    await targetMember.roles.set(userRoles, 'Mute expired');
+    try {
+      await targetMember.send(`Your mute in ${guild.name} has expired. You are now unmuted.`);
+    } catch (error) {
+      console.error('Failed to send DM to unmuted user:', error);
+    }
+
+    await targetMember.roles.remove(muteRole, 'Mute expired');
+  }, duration * 60 * 1000);
+
+  await interaction.reply({
+    content: `Successfully muted ${targetMember.user.tag} for ${duration} minutes. Reason: ${reason}`,
+  });
+}
+
+
 // to read the config.json for the token
 const fs = require('fs');
 const config = JSON.parse(fs.readFileSync('config.json', 'utf-8'));
 const token = config.token;
-
 client.login(token);
