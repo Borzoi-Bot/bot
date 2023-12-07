@@ -7,6 +7,10 @@ const client = new Client({
   ],
 });
 
+function setMute(callback, delay) {
+  setTimeout(callback, delay);
+}
+
 function getMuteRole(guild) {
   return guild.roles.cache.find((role) => role.name === 'muted');
 }
