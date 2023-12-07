@@ -8,79 +8,37 @@ const client = new Client({
 });
 
 function getMuteRole(guild) {
-  const muteRole = guild.roles.cache.find((role) => role.name === 'muted');
-  return muteRole;
+  return guild.roles.cache.find((role) => role.name === 'muted');
 }
 
 async function setupCommands() {
   const commands = [
-    {
-      name: 'test',
-      description: 'A test command',
-    },
-    {
-      name: 'embedtest',
-      description: 'A command to test embeds',
-    },
-    {
-      name: 'ping',
-      description: 'Check the bot\'s latency',
-    },
+    { name: 'test', description: 'A test command' },
+    { name: 'embedtest', description: 'A command to test embeds' },
+    { name: 'ping', description: 'Check the bot\'s latency' },
     {
       name: 'ban',
       description: 'Ban a user',
       options: [
-        {
-          name: 'user',
-          description: 'The user to ban',
-          type: 'USER',
-          required: true,
-        },
-        {
-          name: 'reason',
-          description: 'Reason for the ban',
-          type: 'STRING',
-        },
+        { name: 'user', description: 'The user to ban', type: 'USER', required: true },
+        { name: 'reason', description: 'Reason for the ban', type: 'STRING' },
       ],
     },
     {
       name: 'warn',
       description: 'Warn a user',
       options: [
-        {
-          name: 'user',
-          description: 'The user to warn',
-          type: 'USER',
-          required: true,
-        },
-        {
-          name: 'reason',
-          description: 'Reason for the warning',
-          type: 'STRING',
-        },
+        { name: 'user', description: 'The user to warn', type: 'USER', required: true },
+        { name: 'reason', description: 'Reason for the warning', type: 'STRING' },
       ],
     },
     {
       name: 'mute',
       description: 'Mute a user',
       options: [
-        {
-          name: 'user',
-          description: 'The user to mute',
-          type: 'USER',
-          required: true,
-        },
-        {
-          name: 'duration',
-          description: 'Duration of the mute in minutes',
-          type: 'INTEGER',
-          required: true,
-        },
-        {
-          name: 'reason',
-          description: 'Reason for the mute',
-          type: 'STRING',
-        },
+        { name: 'user', description: 'The user to mute', type: 'USER', required: true },
+        { name: 'duration', description: 'Duration of the mute in minutes', type: 'INTEGER', required: true },
+        { name: 'reason', description: 'Reason for the mute', type: 'STRING' },
       ],
     },
   ];
@@ -120,9 +78,7 @@ client.on('guildCreate', (guild) => {
     .addField('GitHub:', '[GitHub](https://github.com/Borzoi-Bot)')
     .setImage('https://github.com/Borzoi-Bot/branding/blob/main/branding.png?raw=true');
 
-  const welcomeChannel = guild.channels.cache.find(
-    (channel) => channel.type === 'GUILD_TEXT'
-  );
+  const welcomeChannel = guild.channels.cache.find((channel) => channel.type === 'GUILD_TEXT');
 
   if (welcomeChannel) {
     welcomeChannel.send({ embeds: [welcomeEmbed] });
@@ -132,29 +88,39 @@ client.on('guildCreate', (guild) => {
 });
 
 client.on('interactionCreate', async (interaction) => {
-  if (!interaction.isCommand()) return;
+  if (!interaction.isCommand() || interaction.replied || interaction.deferred) {
+    return;
+  }
 
-  const { commandName, options, guild } = interaction;
+  const { commandName, guild } = interaction;
 
   try {
-    if (commandName === 'test') {
-      await interaction.reply('test');
-    } else if (commandName === 'embedtest') {
-      const embed = new MessageEmbed()
-        .setTitle('Embed Test')
-        .setDescription('This is a test embed.')
-        .setColor('#0099ff');
-
-      await interaction.reply({ embeds: [embed] });
-    } else if (commandName === 'ping') {
-      const ping = client.ws.ping;
-      await interaction.reply(`Bot latency is ${ping}ms.`);
-    } else if (commandName === 'ban') {
-      await handleBanCommand(interaction, guild);
-    } else if (commandName === 'warn') {
-      await handleWarnCommand(interaction, guild);
-    } else if (commandName === 'mute') {
-      await handleMuteCommand(interaction, guild);
+    switch (commandName) {
+      case 'test':
+        await interaction.reply('test');
+        break;
+      case 'embedtest':
+        const embed = new MessageEmbed()
+          .setTitle('Embed Test')
+          .setDescription('This is a test embed.')
+          .setColor('#0099ff');
+        await interaction.reply({ embeds: [embed] });
+        break;
+      case 'ping':
+        const ping = client.ws.ping;
+        await interaction.reply(`Bot latency is ${ping}ms.`);
+        break;
+      case 'ban':
+        await handleBanCommand(interaction, guild);
+        break;
+      case 'warn':
+        await handleWarnCommand(interaction, guild);
+        break;
+      case 'mute':
+        await handleMuteCommand(interaction, guild);
+        break;
+      default:
+        break;
     }
   } catch (error) {
     console.error('Error handling interaction:', error);
@@ -278,7 +244,7 @@ async function handleMuteCommand(interaction, guild) {
     });
   }
 
-  setTimeout(async () => {
+  setMute(async () => {
     await targetMember.roles.set(userRoles, 'Mute expired');
     try {
       await targetMember.send(`Your mute in ${guild.name} has expired. You are now unmuted.`);
@@ -293,6 +259,8 @@ async function handleMuteCommand(interaction, guild) {
     content: `Successfully muted ${targetMember.user.tag} for ${duration} minutes. Reason: ${reason}`,
   });
 }
+
+
 // to read the config.json for the token
 const fs = require('fs');
 const config = JSON.parse(fs.readFileSync('config.json', 'utf-8'));
