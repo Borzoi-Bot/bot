@@ -11,6 +11,10 @@ function getMuteRole(guild) {
   return guild.roles.cache.find((role) => role.name === 'muted');
 }
 
+function setMute(callback, delay) {
+  setTimeout(callback, delay);
+}
+
 async function setupCommands() {
   const commands = [
     { name: 'test', description: 'A test command' },
@@ -41,6 +45,10 @@ async function setupCommands() {
         { name: 'reason', description: 'Reason for the mute', type: 'STRING' },
       ],
     },
+    {
+      name: 'version',
+      description: 'Get bot version information',
+    },
   ];
 
   try {
@@ -68,14 +76,13 @@ client.once('ready', () => {
 });
 
 client.on('guildCreate', (guild) => {
-  console.log(`Joined new guild. Updated Guild ID: ${guild.id}`);
-
   const welcomeEmbed = new MessageEmbed()
     .setTitle('Thanks for adding Borzoi!')
-    .setDescription('Thank you for adding Borzoi.')
+    .setDescription('Thank you for adding Borzoi, here are some links if you need them.')
     .setColor('#000000')
-    .addField('Commands List:', '[UNUSED](https://example.com/link1)')
+    .addField('Wiki:', '[GitHub Wiki](https://github.com/Borzoi-Bot/bot/wiki/Overview)')
     .addField('GitHub:', '[GitHub](https://github.com/Borzoi-Bot)')
+    .addField('Support Server:', '[Discord](https://discord.gg/ZvCqsYTndn)')
     .setImage('https://github.com/Borzoi-Bot/branding/blob/main/branding.png?raw=true');
 
   const welcomeChannel = guild.channels.cache.find((channel) => channel.type === 'GUILD_TEXT');
@@ -118,6 +125,9 @@ client.on('interactionCreate', async (interaction) => {
         break;
       case 'mute':
         await handleMuteCommand(interaction, guild);
+        break;
+      case 'version':
+        await handleVersionCommand(interaction);
         break;
       default:
         break;
@@ -260,6 +270,22 @@ async function handleMuteCommand(interaction, guild) {
   });
 }
 
+async function handleVersionCommand(interaction) {
+  // please make sure to update this info whenever there's a new pull request for the production branch
+  const versionInfo = {
+    version: 'N/A', 
+    releaseDate: 'December 7th, 2023', 
+  };
+
+  const embed = new MessageEmbed()
+    .setTitle('Bot Version Information')
+    .setDescription(`Current version: ${versionInfo.version}`)
+    .addField('Release Date', versionInfo.releaseDate)
+    .addField('Changes in this version', '- Version command, `/version`', '- More links on the welcome message thingy')
+    .setColor('#000000');
+
+  await interaction.reply({ embeds: [embed] });
+}
 
 // to read the config.json for the token
 const fs = require('fs');
