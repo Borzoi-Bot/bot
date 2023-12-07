@@ -1,4 +1,4 @@
-const { Client, Intents, MessageEmbed } = require('discord.js');
+const { Client, Intents, MessageEmbed} = require('discord.js');
 const client = new Client({
   intents: [
     Intents.FLAGS.GUILDS,
@@ -167,14 +167,21 @@ async function handleBanCommand(interaction, guild) {
     });
   }
 
-  await targetMember.send(`You have been banned from ${guild.name} for: ${reason}`);
+  const dmResult = await sendDM(targetMember, `You have been banned from ${guild.name} for: ${reason}`);
 
   await targetMember.ban({ reason });
+
+  if (!dmResult) {
+    return interaction.reply({
+      content: `I could not DM ${targetMember.user.tag}, but I banned them anyway.`,
+    });
+  }
 
   await interaction.reply({
     content: `Successfully banned ${targetMember.user.tag} for: ${reason}`,
   });
 }
+
 
 async function handleWarnCommand(interaction, guild) {
   const options = interaction.options;
@@ -195,13 +202,17 @@ async function handleWarnCommand(interaction, guild) {
     });
   }
 
-  await targetMember.send(`You have been warned in ${guild.name} for: ${reason}`);
+  const dmResult = await sendDM(targetMember, `You have been warned in ${guild.name} for: ${reason}`);
 
   await interaction.reply({
     content: `Successfully warned ${targetMember.user.tag} for: ${reason}`,
   });
 
-  console.log(`User ${targetMember.user.tag} warned in ${guild.name} for: ${reason}`);
+  if (!dmResult) {
+    return interaction.followUp({
+      content: `I could not DM ${targetMember.user.tag}, but I warned them anyway.`,
+    });
+  }
 }
 
 async function handleMuteCommand(interaction, guild) {
@@ -235,17 +246,17 @@ async function handleMuteCommand(interaction, guild) {
 
   if (!muteRole) {
     return interaction.reply({
-      content: 'Could not find a role named "muted" in the server.',
+      content: 'Could not find a role named "muted" in the server. Please create a muted role first.',
       ephemeral: true,
     });
   }
 
   const userRoles = targetMember.roles.cache.filter(role => role.id !== muteRole.id);
 
+  const dmResult = await sendDM(targetMember, `You have been muted in ${guild.name} for ${duration} minutes. Reason: ${reason}`);
+
   try {
     await targetMember.roles.set([muteRole.id], reason);
-
-    await targetMember.send(`You have been muted in ${guild.name} for ${duration} minutes. Reason: ${reason}`);
   } catch (error) {
     console.error('Failed to set roles or send DM to muted user:', error);
     return interaction.reply({
@@ -257,7 +268,7 @@ async function handleMuteCommand(interaction, guild) {
   setMute(async () => {
     await targetMember.roles.set(userRoles, 'Mute expired');
     try {
-      await targetMember.send(`Your mute in ${guild.name} has expired. You are now unmuted.`);
+      await sendDM(targetMember, `Your mute in ${guild.name} has expired. You are now unmuted.`);
     } catch (error) {
       console.error('Failed to send DM to unmuted user:', error);
     }
@@ -265,9 +276,25 @@ async function handleMuteCommand(interaction, guild) {
     await targetMember.roles.remove(muteRole, 'Mute expired');
   }, duration * 60 * 1000);
 
+  if (!dmResult) {
+    return interaction.reply({
+      content: `I could not DM ${targetMember.user.tag}, but I muted them anyway.`,
+      ephemeral: true,
+    });
+  }
+
   await interaction.reply({
     content: `Successfully muted ${targetMember.user.tag} for ${duration} minutes. Reason: ${reason}`,
   });
+}
+
+async function sendDM(user, message) {
+  try {
+    await user.send(message);
+    return true;
+  } catch (error) {
+    return false;
+  }
 }
 
 async function handleVersionCommand(interaction) {
@@ -275,14 +302,19 @@ async function handleVersionCommand(interaction) {
   const versionInfo = {
     version: 'N/A', 
     releaseDate: 'December 7th, 2023', 
+    changes: [
+      '- Version Command, `/version`',
+      '- More links on the welcome message',
+      '- QOL improvements to existing commands'
+    ],
   };
 
   const embed = new MessageEmbed()
     .setTitle('Bot Version Information')
     .setDescription(`Current version: ${versionInfo.version}`)
     .addField('Release Date', versionInfo.releaseDate)
-    .addField('Changes in this version', '- Version command, `/version`', '- More links on the welcome message thingy')
-    .setColor('#000000');
+    .addField('Changes:', versionInfo.changes.join('\n'))
+    .setColor('#000000')
 
   await interaction.reply({ embeds: [embed] });
 }
