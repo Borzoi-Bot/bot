@@ -1,4 +1,4 @@
-const { Client, Intents, MessageEmbed} = require('discord.js');
+const { Client, Intents, MessageEmbed } = require('discord.js');
 const client = new Client({
   intents: [
     Intents.FLAGS.GUILDS,
