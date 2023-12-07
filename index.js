@@ -12,8 +12,101 @@ function getMuteRole(guild) {
   return muteRole;
 }
 
+async function setupCommands() {
+  const commands = [
+    {
+      name: 'test',
+      description: 'A test command',
+    },
+    {
+      name: 'embedtest',
+      description: 'A command to test embeds',
+    },
+    {
+      name: 'ping',
+      description: 'Check the bot\'s latency',
+    },
+    {
+      name: 'ban',
+      description: 'Ban a user',
+      options: [
+        {
+          name: 'user',
+          description: 'The user to ban',
+          type: 'USER',
+          required: true,
+        },
+        {
+          name: 'reason',
+          description: 'Reason for the ban',
+          type: 'STRING',
+        },
+      ],
+    },
+    {
+      name: 'warn',
+      description: 'Warn a user',
+      options: [
+        {
+          name: 'user',
+          description: 'The user to warn',
+          type: 'USER',
+          required: true,
+        },
+        {
+          name: 'reason',
+          description: 'Reason for the warning',
+          type: 'STRING',
+        },
+      ],
+    },
+    {
+      name: 'mute',
+      description: 'Mute a user',
+      options: [
+        {
+          name: 'user',
+          description: 'The user to mute',
+          type: 'USER',
+          required: true,
+        },
+        {
+          name: 'duration',
+          description: 'Duration of the mute in minutes',
+          type: 'INTEGER',
+          required: true,
+        },
+        {
+          name: 'reason',
+          description: 'Reason for the mute',
+          type: 'STRING',
+        },
+      ],
+    },
+  ];
+
+  try {
+    const existingCommands = await client.application?.commands.fetch();
+
+    for (const command of commands) {
+      const existingCommand = existingCommands.find((cmd) => cmd.name === command.name);
+
+      if (existingCommand) {
+        await client.application?.commands.edit(existingCommand.id, command);
+        console.log(`Updated command: ${existingCommand.name}`);
+      } else {
+        await client.application?.commands.create(command);
+        console.log(`Created command: ${command.name}`);
+      }
+    }
+  } catch (error) {
+    console.error('Failed to update/create commands:', error);
+  }
+}
+
 client.once('ready', () => {
   console.log('Online');
+  setupCommands();
 });
 
 client.on('guildCreate', (guild) => {
@@ -200,7 +293,6 @@ async function handleMuteCommand(interaction, guild) {
     content: `Successfully muted ${targetMember.user.tag} for ${duration} minutes. Reason: ${reason}`,
   });
 }
-
 // to read the config.json for the token
 const fs = require('fs');
 const config = JSON.parse(fs.readFileSync('config.json', 'utf-8'));
