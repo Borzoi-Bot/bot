@@ -46,6 +46,14 @@ async function setupCommands() {
       ],
     },
     {
+      name: 'kick',
+      description: 'Kick a user',
+      options: [
+        { name: 'user', description: 'The user to kick', type: 'USER', required: true },
+        { name: 'reason', description: 'Reason for the kick', type: 'STRING' },
+      ],
+    },
+    {
       name: 'version',
       description: 'Get bot version information',
     },
@@ -126,6 +134,9 @@ client.on('interactionCreate', async (interaction) => {
       case 'mute':
         await handleMuteCommand(interaction, guild);
         break;
+      case 'kick':
+        await handleKickCommand(interaction, guild);
+        break;
       case 'version':
         await handleVersionCommand(interaction);
         break;
@@ -181,7 +192,6 @@ async function handleBanCommand(interaction, guild) {
     content: `Successfully banned ${targetMember.user.tag} for: ${reason}`,
   });
 }
-
 
 async function handleWarnCommand(interaction, guild) {
   const options = interaction.options;
@@ -288,6 +298,47 @@ async function handleMuteCommand(interaction, guild) {
   });
 }
 
+async function handleKickCommand(interaction, guild) {
+  const options = interaction.options;
+  const reason = options.getString('reason') || 'No reason provided';
+  const targetMember = options.getMember('user');
+
+  if (!interaction.member.permissions.has('KICK_MEMBERS')) {
+    return interaction.reply({
+      content: 'You do not have permission to kick members.',
+      ephemeral: true,
+    });
+  }
+
+  if (!guild.me.permissions.has('KICK_MEMBERS')) {
+    return interaction.reply({
+      content: 'I do not have permission to kick members.',
+      ephemeral: true,
+    });
+  }
+
+  if (!targetMember) {
+    return interaction.reply({
+      content: 'Please specify a valid user to kick.',
+      ephemeral: true,
+    });
+  }
+
+  const dmResult = await sendDM(targetMember, `You have been kicked from ${guild.name} for: ${reason}`);
+
+  await targetMember.kick(reason);
+
+  if (!dmResult) {
+    return interaction.reply({
+      content: `I could not DM ${targetMember.user.tag}, but I kicked them anyway.`,
+    });
+  }
+
+  await interaction.reply({
+    content: `Successfully kicked ${targetMember.user.tag} for: ${reason}`,
+  });
+}
+
 async function sendDM(user, message) {
   try {
     await user.send(message);
@@ -300,8 +351,8 @@ async function sendDM(user, message) {
 async function handleVersionCommand(interaction) {
   // please make sure to update this info whenever there's a new pull request for the production branch
   const versionInfo = {
-    version: '0.9', 
-    releaseDate: 'December 7th, 2023', 
+    version: '1.0.0', 
+    releaseDate: 'December 12th, 2023', 
     changes: [
       '- Version Command, `/version`',
       '- More links on the welcome message',
