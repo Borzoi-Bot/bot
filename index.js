@@ -7,16 +7,25 @@ const client = new Client({
   ],
 });
 
-function setMute(callback, delay) {
-  setTimeout(callback, delay);
-}
-
 function getMuteRole(guild) {
   return guild.roles.cache.find((role) => role.name === 'muted');
 }
 
+function setMute(callback, delay) {
+  setTimeout(callback, delay);
+}
+
+const helpCommand = {
+  name: 'help',
+  description: 'Get a list of all commands and their functions',
+};
+
+
 async function setupCommands() {
-  const commands = [
+  const existingCommands = await client.application?.commands.fetch();
+
+  const commandsToRegister = [
+    helpCommand,
     { name: 'test', description: 'A test command' },
     { name: 'embedtest', description: 'A command to test embeds' },
     { name: 'ping', description: 'Check the bot\'s latency' },
@@ -46,27 +55,29 @@ async function setupCommands() {
       ],
     },
     {
+      name: 'kick',
+      description: 'Kick a user',
+      options: [
+        { name: 'user', description: 'The user to kick', type: 'USER', required: true },
+        { name: 'reason', description: 'Reason for the kick', type: 'STRING' },
+      ],
+    },
+    {
       name: 'version',
       description: 'Get bot version information',
     },
   ];
 
-  try {
-    const existingCommands = await client.application?.commands.fetch();
+  for (const command of commandsToRegister) {
+    const existingCommand = existingCommands.find(cmd => cmd.name === command.name);
 
-    for (const command of commands) {
-      const existingCommand = existingCommands.find((cmd) => cmd.name === command.name);
-
-      if (existingCommand) {
-        await client.application?.commands.edit(existingCommand.id, command);
-        console.log(`Updated command: ${existingCommand.name}`);
-      } else {
-        await client.application?.commands.create(command);
-        console.log(`Created command: ${command.name}`);
-      }
+    if (existingCommand) {
+      await client.application?.commands.edit(existingCommand.id, command);
+      console.log(`Updated command: ${existingCommand.name}`);
+    } else {
+      await client.application?.commands.create(command);
+      console.log(`Created command: ${command.name}`);
     }
-  } catch (error) {
-    console.error('Failed to update/create commands:', error);
   }
 }
 
@@ -126,8 +137,14 @@ client.on('interactionCreate', async (interaction) => {
       case 'mute':
         await handleMuteCommand(interaction, guild);
         break;
+      case 'kick':
+        await handleKickCommand(interaction, guild);
+        break;
       case 'version':
         await handleVersionCommand(interaction);
+        break;
+      case 'help':
+        await handleHelpCommand(interaction);
         break;
       default:
         break;
@@ -141,6 +158,35 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
+
+async function handleHelpCommand(interaction) {
+  const commands = [
+    { name: 'test', description: 'A test command' },
+    { name: 'embedtest', description: 'A command to test embeds' },
+    { name: 'ping', description: 'Check the bot\'s latency' },
+    { name: 'ban', description: 'Ban a user' },
+    { name: 'warn', description: 'Warn a user' },
+    { name: 'mute', description: 'Mute a user' },
+    { name: 'kick', description: 'Kick a user' },
+    { name: 'version', description: 'Get bot version information' },
+    { name: 'help', description: 'Get a list of all commands and their functions' },
+  ];
+
+  const embed = new MessageEmbed()
+    .setTitle('Commands')
+    .setDescription('Here is a list of all available commands and their functions:')
+    .setColor('#00000');
+
+  commands.forEach(command => {
+    embed.addField(`/${command.name}`, command.description);
+  });
+
+  embed.addField('Support Server', '[Discord](https://discord.gg/ZvCqsYTndn)');
+  embed.addField('GitHub Organization', '[GitHub](https://github.com/Borzoi-Bot)')
+
+  await interaction.reply({ embeds: [embed] });
+}
+
 async function handleBanCommand(interaction, guild) {
   const options = interaction.options;
   const reason = options.getString('reason') || 'No reason provided';
@@ -149,6 +195,13 @@ async function handleBanCommand(interaction, guild) {
   if (!interaction.member.permissions.has('BAN_MEMBERS')) {
     return interaction.reply({
       content: 'You do not have permission to ban members.',
+      ephemeral: true,
+    });
+  }
+
+  if (targetMember.roles.highest.position >= guild.me.roles.highest.position) {
+    return interaction.reply({
+      content: 'I cannot ban a member with equal or higher roles than me.',
       ephemeral: true,
     });
   }
@@ -167,73 +220,51 @@ async function handleBanCommand(interaction, guild) {
     });
   }
 
-  if (targetMember.roles.highest.position >= guild.me.roles.highest.position) {
+  const dmResult = await sendDM(targetMember, `You have been banned from ${guild.name} for: ${reason}`);
+
+  await targetMember.ban({ reason });
+
+  if (!dmResult) {
     return interaction.reply({
-      content: 'I cannot ban a member with equal or higher roles than me.',
+      content: `I could not DM ${targetMember.user.tag}, but I banned them anyway.`,
+    });
+  }
+
+  await interaction.reply({
+    content: `Successfully banned ${targetMember.user.tag} for: ${reason}`,
+  });
+}
+
+async function handleWarnCommand(interaction, guild) {
+  const options = interaction.options;
+  const reason = options.getString('reason') || 'No reason provided';
+  const targetMember = options.getMember('user');
+
+  if (!interaction.member.permissions.has('MANAGE_MESSAGES')) {
+    return interaction.reply({
+      content: 'You do not have permission to warn members.',
       ephemeral: true,
     });
   }
 
-  try {
-    const dmResult = await sendDM(targetMember, `You have been banned from ${guild.name} for: ${reason}`);
-    await targetMember.ban({ reason });
-
-    if (!dmResult) {
-      return interaction.reply({
-        content: `I could not DM ${targetMember.user.tag}, but I banned them anyway.`,
-      });
-    }
-
-    await interaction.reply({
-      content: `Successfully banned ${targetMember.user.tag} for: ${reason}`,
+  if (!targetMember) {
+    return interaction.reply({
+      content: 'Please specify a valid user to warn.',
+      ephemeral: true,
     });
-  } catch (error) {
-    console.error('Failed to ban user:', error);
-
-    if (error.code === 50013) {
-      return interaction.reply({
-        content: 'I do not have permission to ban this user.',
-        ephemeral: true,
-      });
-    } else {
-      return interaction.reply({
-        content: 'An error occurred while banning the user.',
-        ephemeral: true,
-      });
-    }
   }
-}
 
-async function handleWarnCommand(interaction, guild) {
-    const options = interaction.options;
-    const reason = options.getString('reason') || 'No reason provided';
-    const targetMember = options.getMember('user');
-  
-    if (!interaction.member.permissions.has('MANAGE_MESSAGES')) {
-      return interaction.reply({
-        content: 'You do not have permission to warn members.',
-        ephemeral: true,
-      });
-    }
-  
-    if (!targetMember) {
-      return interaction.reply({
-        content: 'Please specify a valid user to warn.',
-        ephemeral: true,
-      });
-    }
-  
-    const dmResult = await sendDM(targetMember, `You have been warned in ${guild.name} for: ${reason}`);
-  
-    await interaction.reply({
-      content: `Successfully warned ${targetMember.user.tag} for: ${reason}`,
+  const dmResult = await sendDM(targetMember, `You have been warned in ${guild.name} for: ${reason}`);
+
+  await interaction.reply({
+    content: `Successfully warned ${targetMember.user.tag} for: ${reason}`,
+  });
+
+  if (!dmResult) {
+    return interaction.followUp({
+      content: `I could not DM ${targetMember.user.tag}, but I warned them anyway.`,
     });
-  
-    if (!dmResult) {
-      return interaction.followUp({
-        content: `I could not DM ${targetMember.user.tag}, but I warned them anyway.`,
-      });
-    }
+  }
 }
 
 async function handleMuteCommand(interaction, guild) {
@@ -272,6 +303,20 @@ async function handleMuteCommand(interaction, guild) {
     });
   }
 
+  const userRoles = targetMember.roles.cache.filter(role => role.id !== muteRole.id);
+
+  const dmResult = await sendDM(targetMember, `You have been muted in ${guild.name} for ${duration} minutes. Reason: ${reason}`);
+
+  try {
+    await targetMember.roles.set([muteRole.id], reason);
+  } catch (error) {
+    console.error('Failed to set roles or send DM to muted user:', error);
+    return interaction.reply({
+      content: 'An error occurred while muting the user.',
+      ephemeral: true,
+    });
+  }
+
   if (targetMember.roles.highest.position >= guild.me.roles.highest.position) {
     return interaction.reply({
       content: 'I cannot mute a member with equal or higher roles than me.',
@@ -279,33 +324,15 @@ async function handleMuteCommand(interaction, guild) {
     });
   }
 
-  try {
-    await targetMember.roles.add(muteRole, reason);
-  } catch (error) {
-    console.error('Failed to mute user:', error);
-
-    if (error.code === 50013) {
-      return interaction.reply({
-        content: 'I do not have permission to mute this user.',
-        ephemeral: true,
-      });
-    } else {
-      return interaction.reply({
-        content: 'An error occurred while muting the user.',
-        ephemeral: true,
-      });
-    }
-  }
-
-  const dmResult = await sendDM(targetMember, `You have been muted in ${guild.name} for ${duration} minutes. Reason: ${reason}`);
-
   setMute(async () => {
+    await targetMember.roles.set(userRoles, 'Mute expired');
     try {
-      await targetMember.roles.remove(muteRole, 'Mute expired');
       await sendDM(targetMember, `Your mute in ${guild.name} has expired. You are now unmuted.`);
     } catch (error) {
-      console.error('Failed to handle mute expiration:', error);
+      console.error('Failed to send DM to unmuted user:', error);
     }
+
+    await targetMember.roles.remove(muteRole, 'Mute expired');
   }, duration * 60 * 1000);
 
   if (!dmResult) {
@@ -320,22 +347,71 @@ async function handleMuteCommand(interaction, guild) {
   });
 }
 
+async function handleKickCommand(interaction, guild) {
+  const options = interaction.options;
+  const reason = options.getString('reason') || 'No reason provided';
+  const targetMember = options.getMember('user');
+
+  if (!interaction.member.permissions.has('KICK_MEMBERS')) {
+    return interaction.reply({
+      content: 'You do not have permission to kick members.',
+      ephemeral: true,
+    });
+  }
+
+  if (targetMember.roles.highest.position >= guild.me.roles.highest.position) {
+    return interaction.reply({
+      content: 'I cannot kick a member with equal or higher roles than me.',
+      ephemeral: true,
+    });
+  }
+
+  if (!guild.me.permissions.has('KICK_MEMBERS')) {
+    return interaction.reply({
+      content: 'I do not have permission to kick members.',
+      ephemeral: true,
+    });
+  }
+
+  if (!targetMember) {
+    return interaction.reply({
+      content: 'Please specify a valid user to kick.',
+      ephemeral: true,
+    });
+  }
+
+  const dmResult = await sendDM(targetMember, `You have been kicked from ${guild.name} for: ${reason}`);
+
+  await targetMember.kick(reason);
+
+  if (!dmResult) {
+    return interaction.reply({
+      content: `I could not DM ${targetMember.user.tag}, but I kicked them anyway.`,
+    });
+  }
+
+  await interaction.reply({
+    content: `Successfully kicked ${targetMember.user.tag} for: ${reason}`,
+  });
+}
+
 async function sendDM(user, message) {
-    try {
-       await user.send(message);
-        return true;
-      } catch (error) {
-        return false;
-      }
+  try {
+    await user.send(message);
+    return true;
+  } catch (error) {
+    return false;
+  }
 }
 
 async function handleVersionCommand(interaction) {
   // please make sure to update this info whenever there's a new pull request for the production branch
   const versionInfo = {
-    version: '0.9.1', 
-    releaseDate: 'December 15th, 2023', 
+    version: '1.0.0', 
+    releaseDate: 'December 16th, 2023', 
     changes: [
-      '- urgent bug fix'
+      '- kick command, ``/kick``',
+      '- help command, ``/help``'
     ],
   };
 
