@@ -181,6 +181,9 @@ async function handleHelpCommand(interaction) {
     embed.addField(`/${command.name}`, command.description);
   });
 
+  embed.addField('Support Server', '[Discord](https://discord.gg/ZvCqsYTndn)');
+  embed.addField('GitHub Organization', '[GitHub](https://github.com/Borzoi-Bot)')
+
   await interaction.reply({ embeds: [embed] });
 }
 
