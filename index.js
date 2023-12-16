@@ -15,8 +15,17 @@ function setMute(callback, delay) {
   setTimeout(callback, delay);
 }
 
+const helpCommand = {
+  name: 'help',
+  description: 'Get a list of all commands and their functions',
+};
+
+
 async function setupCommands() {
-  const commands = [
+  const existingCommands = await client.application?.commands.fetch();
+
+  const commandsToRegister = [
+    helpCommand,
     { name: 'test', description: 'A test command' },
     { name: 'embedtest', description: 'A command to test embeds' },
     { name: 'ping', description: 'Check the bot\'s latency' },
@@ -59,22 +68,16 @@ async function setupCommands() {
     },
   ];
 
-  try {
-    const existingCommands = await client.application?.commands.fetch();
+  for (const command of commandsToRegister) {
+    const existingCommand = existingCommands.find(cmd => cmd.name === command.name);
 
-    for (const command of commands) {
-      const existingCommand = existingCommands.find((cmd) => cmd.name === command.name);
-
-      if (existingCommand) {
-        await client.application?.commands.edit(existingCommand.id, command);
-        console.log(`Updated command: ${existingCommand.name}`);
-      } else {
-        await client.application?.commands.create(command);
-        console.log(`Created command: ${command.name}`);
-      }
+    if (existingCommand) {
+      await client.application?.commands.edit(existingCommand.id, command);
+      console.log(`Updated command: ${existingCommand.name}`);
+    } else {
+      await client.application?.commands.create(command);
+      console.log(`Created command: ${command.name}`);
     }
-  } catch (error) {
-    console.error('Failed to update/create commands:', error);
   }
 }
 
@@ -140,6 +143,9 @@ client.on('interactionCreate', async (interaction) => {
       case 'version':
         await handleVersionCommand(interaction);
         break;
+      case 'help':
+        await handleHelpCommand(interaction);
+        break;
       default:
         break;
     }
@@ -152,6 +158,32 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
+
+async function handleHelpCommand(interaction) {
+  const commands = [
+    { name: 'test', description: 'A test command' },
+    { name: 'embedtest', description: 'A command to test embeds' },
+    { name: 'ping', description: 'Check the bot\'s latency' },
+    { name: 'ban', description: 'Ban a user' },
+    { name: 'warn', description: 'Warn a user' },
+    { name: 'mute', description: 'Mute a user' },
+    { name: 'kick', description: 'Kick a user' },
+    { name: 'version', description: 'Get bot version information' },
+    { name: 'help', description: 'Get a list of all commands and their functions' },
+  ];
+
+  const embed = new MessageEmbed()
+    .setTitle('Commands')
+    .setDescription('Here is a list of all available commands and their functions:')
+    .setColor('#00000');
+
+  commands.forEach(command => {
+    embed.addField(`/${command.name}`, command.description);
+  });
+
+  await interaction.reply({ embeds: [embed] });
+}
+
 async function handleBanCommand(interaction, guild) {
   const options = interaction.options;
   const reason = options.getString('reason') || 'No reason provided';
@@ -160,6 +192,13 @@ async function handleBanCommand(interaction, guild) {
   if (!interaction.member.permissions.has('BAN_MEMBERS')) {
     return interaction.reply({
       content: 'You do not have permission to ban members.',
+      ephemeral: true,
+    });
+  }
+
+  if (targetMember.roles.highest.position >= guild.me.roles.highest.position) {
+    return interaction.reply({
+      content: 'I cannot ban a member with equal or higher roles than me.',
       ephemeral: true,
     });
   }
@@ -275,6 +314,13 @@ async function handleMuteCommand(interaction, guild) {
     });
   }
 
+  if (targetMember.roles.highest.position >= guild.me.roles.highest.position) {
+    return interaction.reply({
+      content: 'I cannot mute a member with equal or higher roles than me.',
+      ephemeral: true,
+    });
+  }
+
   setMute(async () => {
     await targetMember.roles.set(userRoles, 'Mute expired');
     try {
@@ -306,6 +352,13 @@ async function handleKickCommand(interaction, guild) {
   if (!interaction.member.permissions.has('KICK_MEMBERS')) {
     return interaction.reply({
       content: 'You do not have permission to kick members.',
+      ephemeral: true,
+    });
+  }
+
+  if (targetMember.roles.highest.position >= guild.me.roles.highest.position) {
+    return interaction.reply({
+      content: 'I cannot kick a member with equal or higher roles than me.',
       ephemeral: true,
     });
   }
@@ -352,11 +405,10 @@ async function handleVersionCommand(interaction) {
   // please make sure to update this info whenever there's a new pull request for the production branch
   const versionInfo = {
     version: '1.0.0', 
-    releaseDate: 'December 12th, 2023', 
+    releaseDate: 'December 16th, 2023', 
     changes: [
-      '- Version Command, `/version`',
-      '- More links on the welcome message',
-      '- QOL improvements to existing commands'
+      '- kick command, ``/kick``',
+      '- help command, ``/help``'
     ],
   };
 
