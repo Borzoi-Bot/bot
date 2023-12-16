@@ -146,45 +146,67 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 async function handleBanCommand(interaction, guild) {
-  const options = interaction.options;
-  const reason = options.getString('reason') || 'No reason provided';
-  const targetMember = options.getMember('user');
-
-  if (!interaction.member.permissions.has('BAN_MEMBERS')) {
-    return interaction.reply({
-      content: 'You do not have permission to ban members.',
-      ephemeral: true,
-    });
+    const options = interaction.options;
+    const reason = options.getString('reason') || 'No reason provided';
+    const targetMember = options.getMember('user');
+  
+    if (!interaction.member.permissions.has('BAN_MEMBERS')) {
+      return interaction.reply({
+        content: 'You do not have permission to ban members.',
+        ephemeral: true,
+      });
+    }
+  
+    if (!guild.me.permissions.has('BAN_MEMBERS')) {
+      return interaction.reply({
+        content: 'I do not have permission to ban members.',
+        ephemeral: true,
+      });
+    }
+  
+    if (!targetMember) {
+      return interaction.reply({
+        content: 'Please specify a valid user to ban.',
+        ephemeral: true,
+      });
+    }
+  
+    if (targetMember.roles.highest.position >= guild.me.roles.highest.position) {
+      return interaction.reply({
+        content: 'I cannot ban a member with equal or higher roles than me.',
+        ephemeral: true,
+      });
+    }
+  
+    try {
+      const dmResult = await sendDM(targetMember, `You have been banned from ${guild.name} for: ${reason}`);
+      await targetMember.ban({ reason });
+  
+      if (!dmResult) {
+        return interaction.reply({
+          content: `I could not DM ${targetMember.user.tag}, but I banned them anyway.`,
+        });
+      }
+  
+      await interaction.reply({
+        content: `Successfully banned ${targetMember.user.tag} for: ${reason}`,
+      });
+    } catch (error) {
+      console.error('Failed to ban user:', error);
+  
+      if (error.code === 50013) {
+        return interaction.reply({
+          content: 'I do not have permission to ban this user.',
+          ephemeral: true,
+        });
+      } else {
+        return interaction.reply({
+          content: 'An error occurred while banning the user.',
+          ephemeral: true,
+        });
+      }
+    }
   }
-
-  if (!guild.me.permissions.has('BAN_MEMBERS')) {
-    return interaction.reply({
-      content: 'I do not have permission to ban members.',
-      ephemeral: true,
-    });
-  }
-
-  if (!targetMember) {
-    return interaction.reply({
-      content: 'Please specify a valid user to ban.',
-      ephemeral: true,
-    });
-  }
-
-  const dmResult = await sendDM(targetMember, `You have been banned from ${guild.name} for: ${reason}`);
-
-  await targetMember.ban({ reason });
-
-  if (!dmResult) {
-    return interaction.reply({
-      content: `I could not DM ${targetMember.user.tag}, but I banned them anyway.`,
-    });
-  }
-
-  await interaction.reply({
-    content: `Successfully banned ${targetMember.user.tag} for: ${reason}`,
-  });
-}
 
 
 async function handleWarnCommand(interaction, guild) {
@@ -220,77 +242,88 @@ async function handleWarnCommand(interaction, guild) {
 }
 
 async function handleMuteCommand(interaction, guild) {
-  const options = interaction.options;
-  const duration = options.getInteger('duration');
-  const reason = options.getString('reason') || 'No reason provided';
-  const targetMember = options.getMember('user');
-
-  if (!interaction.member.permissions.has('MANAGE_ROLES')) {
-    return interaction.reply({
-      content: 'You do not have permission to mute members.',
-      ephemeral: true,
-    });
-  }
-
-  if (!guild.me.permissions.has('MANAGE_ROLES')) {
-    return interaction.reply({
-      content: 'I do not have permission to manage roles.',
-      ephemeral: true,
-    });
-  }
-
-  if (!targetMember) {
-    return interaction.reply({
-      content: 'Please specify a valid user to mute.',
-      ephemeral: true,
-    });
-  }
-
-  const muteRole = getMuteRole(guild);
-
-  if (!muteRole) {
-    return interaction.reply({
-      content: 'Could not find a role named "muted" in the server. Please create a muted role first.',
-      ephemeral: true,
-    });
-  }
-
-  const userRoles = targetMember.roles.cache.filter(role => role.id !== muteRole.id);
-
-  const dmResult = await sendDM(targetMember, `You have been muted in ${guild.name} for ${duration} minutes. Reason: ${reason}`);
-
-  try {
-    await targetMember.roles.set([muteRole.id], reason);
-  } catch (error) {
-    console.error('Failed to set roles or send DM to muted user:', error);
-    return interaction.reply({
-      content: 'An error occurred while muting the user.',
-      ephemeral: true,
-    });
-  }
-
-  setMute(async () => {
-    await targetMember.roles.set(userRoles, 'Mute expired');
-    try {
-      await sendDM(targetMember, `Your mute in ${guild.name} has expired. You are now unmuted.`);
-    } catch (error) {
-      console.error('Failed to send DM to unmuted user:', error);
+    const options = interaction.options;
+    const duration = options.getInteger('duration');
+    const reason = options.getString('reason') || 'No reason provided';
+    const targetMember = options.getMember('user');
+  
+    if (!interaction.member.permissions.has('MANAGE_ROLES')) {
+      return interaction.reply({
+        content: 'You do not have permission to mute members.',
+        ephemeral: true,
+      });
     }
-
-    await targetMember.roles.remove(muteRole, 'Mute expired');
-  }, duration * 60 * 1000);
-
-  if (!dmResult) {
-    return interaction.reply({
-      content: `I could not DM ${targetMember.user.tag}, but I muted them anyway.`,
-      ephemeral: true,
+  
+    if (!guild.me.permissions.has('MANAGE_ROLES')) {
+      return interaction.reply({
+        content: 'I do not have permission to manage roles.',
+        ephemeral: true,
+      });
+    }
+  
+    if (!targetMember) {
+      return interaction.reply({
+        content: 'Please specify a valid user to mute.',
+        ephemeral: true,
+      });
+    }
+  
+    const muteRole = getMuteRole(guild);
+  
+    if (!muteRole) {
+      return interaction.reply({
+        content: 'Could not find a role named "muted" in the server. Please create a muted role first.',
+        ephemeral: true,
+      });
+    }
+  
+    if (targetMember.roles.highest.position >= guild.me.roles.highest.position) {
+      return interaction.reply({
+        content: 'I cannot mute a member with equal or higher roles than me.',
+        ephemeral: true,
+      });
+    }
+  
+    try {
+      await targetMember.roles.add(muteRole, reason);
+    } catch (error) {
+      console.error('Failed to mute user:', error);
+  
+      if (error.code === 50013) {
+        return interaction.reply({
+          content: 'I do not have permission to mute this user.',
+          ephemeral: true,
+        });
+      } else {
+        return interaction.reply({
+          content: 'An error occurred while muting the user.',
+          ephemeral: true,
+        });
+      }
+    }
+  
+    const dmResult = await sendDM(targetMember, `You have been muted in ${guild.name} for ${duration} minutes. Reason: ${reason}`);
+  
+    setMute(async () => {
+      try {
+        await targetMember.roles.remove(muteRole, 'Mute expired');
+        await sendDM(targetMember, `Your mute in ${guild.name} has expired. You are now unmuted.`);
+      } catch (error) {
+        console.error('Failed to handle mute expiration:', error);
+      }
+    }, duration * 60 * 1000);
+  
+    if (!dmResult) {
+      return interaction.reply({
+        content: `I could not DM ${targetMember.user.tag}, but I muted them anyway.`,
+        ephemeral: true,
+      });
+    }
+  
+    await interaction.reply({
+      content: `Successfully muted ${targetMember.user.tag} for ${duration} minutes. Reason: ${reason}`,
     });
   }
-
-  await interaction.reply({
-    content: `Successfully muted ${targetMember.user.tag} for ${duration} minutes. Reason: ${reason}`,
-  });
-}
 
 async function sendDM(user, message) {
   try {
@@ -304,12 +337,10 @@ async function sendDM(user, message) {
 async function handleVersionCommand(interaction) {
   // please make sure to update this info whenever there's a new pull request for the production branch
   const versionInfo = {
-    version: '0.9', 
-    releaseDate: 'December 7th, 2023', 
+    version: '0.9.1', 
+    releaseDate: 'December 15th, 2023', 
     changes: [
-      '- Version Command, `/version`',
-      '- More links on the welcome message',
-      '- QOL improvements to existing commands'
+      '- Urgent bug fix, bot would crash if a person with equal/higher roles were trying to be muted/banned.',
     ],
   };
 
