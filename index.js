@@ -7,6 +7,8 @@ const client = new Client({
   ],
 });
 
+const cooldowns = new Map();
+
 function getMuteRole(guild) {
   return guild.roles.cache.find((role) => role.name === 'muted');
 }
@@ -113,6 +115,14 @@ client.on('interactionCreate', async (interaction) => {
   const { commandName, guild } = interaction;
 
   try {
+    const user = interaction.user;
+    if (!checkCooldown(user, commandName)) {
+      return interaction.reply({
+        content: 'Command on cooldown. Please wait',
+        ephemeral: true,
+      });
+    }
+
     switch (commandName) {
       case 'test':
         await interaction.reply('test');
@@ -236,33 +246,41 @@ async function handleBanCommand(interaction, guild) {
 }
 
 async function handleWarnCommand(interaction, guild) {
-  const options = interaction.options;
-  const reason = options.getString('reason') || 'No reason provided';
-  const targetMember = options.getMember('user');
+  try {
+    const options = interaction.options;
+    const reason = options.getString('reason') || 'No reason provided';
+    const targetMember = options.getMember('user');
 
-  if (!interaction.member.permissions.has('MANAGE_MESSAGES')) {
-    return interaction.reply({
-      content: 'You do not have permission to warn members.',
-      ephemeral: true,
+    if (!interaction.member.permissions.has('MANAGE_MESSAGES')) {
+      return interaction.reply({
+        content: 'You do not have permission to warn members.',
+        ephemeral: true,
+      });
+    }
+
+    if (!targetMember) {
+      return interaction.reply({
+        content: 'Please specify a valid user to warn.',
+        ephemeral: true,
+      });
+    }
+
+    const dmResult = await sendDM(targetMember, `You have been warned in ${guild.name} for: ${reason}`);
+
+    await interaction.reply({
+      content: `Successfully warned ${targetMember.user.tag} for: ${reason}`,
     });
-  }
 
-  if (!targetMember) {
-    return interaction.reply({
-      content: 'Please specify a valid user to warn.',
+    if (!dmResult) {
+      return interaction.followUp({
+        content: `I could not DM ${targetMember.user.tag}, but I warned them anyway.`,
+      });
+    }
+  } catch (error) {
+    console.error('Error handling warn command:', error);
+    await interaction.followUp({
+      content: 'An error occurred while processing the command.',
       ephemeral: true,
-    });
-  }
-
-  const dmResult = await sendDM(targetMember, `You have been warned in ${guild.name} for: ${reason}`);
-
-  await interaction.reply({
-    content: `Successfully warned ${targetMember.user.tag} for: ${reason}`,
-  });
-
-  if (!dmResult) {
-    return interaction.followUp({
-      content: `I could not DM ${targetMember.user.tag}, but I warned them anyway.`,
     });
   }
 }
@@ -407,11 +425,11 @@ async function sendDM(user, message) {
 async function handleVersionCommand(interaction) {
   // please make sure to update this info whenever there's a new pull request for the production branch
   const versionInfo = {
-    version: '1.0.0', 
-    releaseDate: 'December 16th, 2023', 
+    version: '1.0.1', 
+    releaseDate: 'December 21st, 2023', 
     changes: [
-      '- kick command, ``/kick``',
-      '- help command, ``/help``'
+      '- urgent bug fixes',
+      '- command cooldown'
     ],
   };
 
@@ -423,6 +441,21 @@ async function handleVersionCommand(interaction) {
     .setColor('#000000')
 
   await interaction.reply({ embeds: [embed] });
+}
+
+function checkCooldown(user, command) {
+  const now = Date.now();
+  const userCooldowns = cooldowns.get(user.id) || {};
+  const commandCooldown = userCooldowns[command] || 0;
+  
+  if (commandCooldown > now) {
+    return false;
+  }
+  
+  userCooldowns[command] = now + 10000;  // Corrected line
+  cooldowns.set(user.id, userCooldowns);
+  
+  return true;
 }
 
 // to read the config.json for the token
