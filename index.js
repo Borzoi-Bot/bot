@@ -123,6 +123,20 @@ client.on('interactionCreate', async (interaction) => {
       });
     }
 
+    if (!interaction) {
+      console.error('Interaction object is undefined.');
+      return;
+    }
+    
+    const userId = user.id;
+
+    if (checkBlacklist(userId)) {
+      return interaction.reply({
+        content: 'You have been blacklisted from Borzoi.',
+        ephemeral: true,
+      });
+    }
+
     switch (commandName) {
       case 'test':
         await interaction.reply('test');
@@ -182,6 +196,7 @@ async function handleHelpCommand(interaction) {
     { name: 'help', description: 'Get a list of all commands and their functions' },
   ];
 
+
   const embed = new MessageEmbed()
     .setTitle('Commands')
     .setDescription('Here is a list of all available commands and their functions:')
@@ -229,6 +244,7 @@ async function handleBanCommand(interaction, guild) {
       ephemeral: true,
     });
   }
+  
 
   const dmResult = await sendDM(targetMember, `You have been banned from ${guild.name} for: ${reason}`);
 
@@ -342,6 +358,7 @@ async function handleMuteCommand(interaction, guild) {
     });
   }
 
+
   setMute(async () => {
     await targetMember.roles.set(userRoles, 'Mute expired');
     try {
@@ -443,20 +460,27 @@ async function handleVersionCommand(interaction) {
   await interaction.reply({ embeds: [embed] });
 }
 
-function checkCooldown(user, command) {
+
+function checkBlacklist(userId) {
+  const blacklist = ['664656179846184970', '1137140543407788033', '878769187370176523'];
+  return blacklist.includes(userId);
+}
+
+function checkCooldown(userId, command) {
   const now = Date.now();
-  const userCooldowns = cooldowns.get(user.id) || {};
+  const userCooldowns = cooldowns.get(userId) || {};
   const commandCooldown = userCooldowns[command] || 0;
-  
+
   if (commandCooldown > now) {
     return false;
   }
-  
-  userCooldowns[command] = now + 10000;  // Corrected line
-  cooldowns.set(user.id, userCooldowns);
-  
+
+  userCooldowns[command] = now + 10000;
+  cooldowns.set(userId, userCooldowns);
+
   return true;
 }
+
 
 // to read the config.json for the token
 const fs = require('fs');
