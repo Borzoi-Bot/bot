@@ -462,7 +462,7 @@ async function handleVersionCommand(interaction) {
 
 
 function checkBlacklist(userId) {
-  const blacklist = ['664656179846184970', '1137140543407788033', '878769187370176523'];
+  const blacklist = ['1137140543407788033', '878769187370176523'];
   return blacklist.includes(userId);
 }
 
